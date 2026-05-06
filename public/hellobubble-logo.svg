@@ -1,0 +1,22 @@
+<svg width="520" height="140" viewBox="0 0 520 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="hbGradient" x1="24" y1="18" x2="114" y2="122" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6366F1" />
+      <stop offset="0.55" stop-color="#8B5CF6" />
+      <stop offset="1" stop-color="#D946EF" />
+    </linearGradient>
+    <linearGradient id="hbText" x1="150" y1="36" x2="470" y2="108" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F4F4F8" />
+      <stop offset="1" stop-color="#C4B5FD" />
+    </linearGradient>
+  </defs>
+
+  <circle cx="72" cy="70" r="52" fill="url(#hbGradient)" />
+  <circle cx="58" cy="52" r="8" fill="#FFFFFF" fill-opacity="0.88" />
+  <circle cx="86" cy="54" r="5" fill="#FFFFFF" fill-opacity="0.78" />
+  <circle cx="74" cy="74" r="20" fill="#FFFFFF" fill-opacity="0.22" stroke="#FFFFFF" stroke-opacity="0.72" />
+
+  <text x="142" y="86" fill="url(#hbText)" font-family="Syne, Plus Jakarta Sans, Arial, sans-serif" font-size="52" font-weight="700" letter-spacing="2">
+    HELLOBUBBLE
+  </text>
+</svg>

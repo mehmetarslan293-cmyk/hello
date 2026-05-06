@@ -1,0 +1,470 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum Role {
+  ADMIN
+  BRAND
+  INFLUENCER
+}
+
+enum AccountStatus {
+  ACTIVE
+  PENDING
+  SUSPENDED
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum ApplicationStatus {
+  PENDING
+  SHORTLISTED
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum DeliverableStatus {
+  SUBMITTED
+  REVISION_REQUESTED
+  APPROVED
+}
+
+enum MessageScope {
+  DIRECT
+  CAMPAIGN
+  SYSTEM
+}
+
+enum FinancialTxnType {
+  TOPUP
+  WITHDRAWAL_REQUEST
+  WITHDRAWAL_APPROVED
+  WITHDRAWAL_REJECTED
+  CAMPAIGN_ESCROW_LOCK
+  CAMPAIGN_ESCROW_RELEASE
+  PLATFORM_FEE
+  REFUND
+}
+
+enum SupportPriority {
+  LOW
+  NORMAL
+  HIGH
+}
+
+enum SupportStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum Platform {
+  INSTAGRAM
+  TIKTOK
+  YOUTUBE
+  X
+}
+
+enum SocialProvider {
+  META
+  TIKTOK
+}
+
+model User {
+  id               String             @id @default(cuid())
+  email            String             @unique
+  passwordHash     String
+  fullName         String
+  phone            String?
+  role             Role
+  status           AccountStatus      @default(PENDING)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  lastLoginAt      DateTime?
+
+  brandProfile      BrandProfile?
+  influencerProfile InfluencerProfile?
+  wallet            Wallet?
+
+  sentMessages      Message[]          @relation("MessageSender")
+  messageReads      MessageRead[]      @relation("MessageReads")
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+  socialConnections SocialConnection[]
+}
+
+model BrandProfile {
+  id             String          @id @default(cuid())
+  userId         String          @unique
+  brandName      String
+  website        String?
+  companyType    String?
+  sector         String?
+  title          String?
+  country        String?
+  referralSource String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaigns        Campaign[]
+  subscriptions    Subscription[]
+  invoices         Invoice[]
+  supportTickets   SupportTicket[]
+}
+
+model InfluencerProfile {
+  id             String           @id @default(cuid())
+  userId         String           @unique
+  handle         String?
+  city           String?
+  bio            String?
+  category       String?
+  followers      Int              @default(0)
+  engagementRate Float            @default(0)
+  score          Int              @default(0)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platformAccounts PlatformAccount[]
+  applications     CampaignApplication[]
+  deliverables     Deliverable[]
+  supportTickets   SupportTicket[]
+  metricSnapshots  InfluencerMetricSnapshot[]
+}
+
+model PlatformAccount {
+  id                String             @id @default(cuid())
+  influencerId      String
+  platform          Platform
+  username          String
+  profileUrl        String?
+  followersSnapshot Int                @default(0)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  influencer InfluencerProfile @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+
+  @@unique([platform, username])
+}
+
+model SocialConnection {
+  id                    String         @id @default(cuid())
+  userId                String
+  provider              SocialProvider
+  providerUserId        String
+  accessTokenEncrypted  String
+  refreshTokenEncrypted String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId, provider])
+}
+
+model Campaign {
+  id                 String                @id @default(cuid())
+  brandId            String
+  title              String
+  description        String?
+  campaignType       String
+  objective          String?
+  budgetTotal        Float
+  budgetSpent        Float                 @default(0)
+  startAt            DateTime?
+  endAt              DateTime?
+  status             CampaignStatus        @default(DRAFT)
+  targetAgeRange     String?
+  targetGender       String?
+  targetCountry      String?
+  targetCity         String?
+  targetPlatforms    String?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  brand              BrandProfile          @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  applications       CampaignApplication[]
+  deliverables       Deliverable[]
+  messages           Message[]
+}
+
+model CampaignApplication {
+  id            String              @id @default(cuid())
+  campaignId    String
+  influencerId  String
+  offeredPrice  Float               @default(0)
+  note          String?
+  status        ApplicationStatus   @default(PENDING)
+  appliedAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  campaign      Campaign            @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  influencer    InfluencerProfile   @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, influencerId])
+}
+
+model Deliverable {
+  id              String             @id @default(cuid())
+  campaignId      String
+  influencerId    String
+  title           String
+  contentUrl      String?
+  caption         String?
+  dueAt           DateTime?
+  submittedAt     DateTime?
+  status          DeliverableStatus  @default(SUBMITTED)
+  reviewNote      String?
+  brandRating     Int?
+  ratedAt         DateTime?
+  ratedByUserId   String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  campaign        Campaign           @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  influencer      InfluencerProfile  @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+  ratingLogs      DeliverableRatingLog[]
+}
+
+model DeliverableRatingLog {
+  id             String       @id @default(cuid())
+  deliverableId  String
+  rating         Int
+  actorUserId    String
+  note           String?
+  createdAt      DateTime     @default(now())
+
+  deliverable    Deliverable  @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
+}
+
+model InfluencerMetricSnapshot {
+  id             String              @id @default(cuid())
+  influencerId   String
+  platform       Platform
+  followers      Int                 @default(0)
+  avgViews       Int                 @default(0)
+  capturedAt     DateTime            @default(now())
+  snapshotDate   DateTime?
+
+  influencer     InfluencerProfile   @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+
+  @@index([influencerId, capturedAt])
+  @@unique([influencerId, platform, snapshotDate])
+}
+
+model JobLock {
+  key        String   @id
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Wallet {
+  id            String               @id @default(cuid())
+  userId        String               @unique
+  balance       Float                @default(0)
+  escrowBalance Float                @default(0)
+  currency      String               @default("TRY")
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions  FinancialTransaction[]
+}
+
+model FinancialTransaction {
+  id             String           @id @default(cuid())
+  walletId       String
+  type           FinancialTxnType
+  amount         Float
+  balanceAfter   Float
+  referenceId    String?
+  note           String?
+  createdAt      DateTime         @default(now())
+
+  wallet         Wallet           @relation(fields: [walletId], references: [id], onDelete: Cascade)
+}
+
+model SubscriptionPlan {
+  id             String           @id @default(cuid())
+  name           String           @unique
+  description    String?
+  monthlyPrice   Float
+  yearlyPrice    Float?
+  features       String?
+  isActive       Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  subscriptions  Subscription[]
+}
+
+model Subscription {
+  id             String          @id @default(cuid())
+  brandId        String
+  planId         String
+  status         String
+  startAt        DateTime
+  endAt          DateTime?
+  autoRenew      Boolean         @default(false)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  brand          BrandProfile    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  plan           SubscriptionPlan @relation(fields: [planId], references: [id])
+}
+
+model Invoice {
+  id             String          @id @default(cuid())
+  brandId        String
+  invoiceNo      String          @unique
+  amount         Float
+  taxAmount      Float           @default(0)
+  totalAmount    Float
+  issueDate      DateTime
+  dueDate        DateTime?
+  paidAt         DateTime?
+  status         String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  brand          BrandProfile    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+}
+
+model MessageThread {
+  id             String          @id @default(cuid())
+  title          String?
+  scope          MessageScope    @default(DIRECT)
+  campaignId     String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  messages       Message[]
+}
+
+model Message {
+  id             String          @id @default(cuid())
+  threadId       String
+  senderUserId   String
+  campaignId     String?
+  body           String
+  createdAt      DateTime        @default(now())
+
+  thread         MessageThread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender         User            @relation("MessageSender", fields: [senderUserId], references: [id], onDelete: Cascade)
+  campaign       Campaign?       @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  reads          MessageRead[]
+}
+
+model MessageRead {
+  id         String   @id @default(cuid())
+  messageId  String
+  userId     String
+  readAt     DateTime @default(now())
+
+  message    Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user       User     @relation("MessageReads", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+}
+
+model Notification {
+  id             String          @id @default(cuid())
+  userId         String
+  title          String
+  body           String?
+  link           String?
+  isRead         Boolean         @default(false)
+  createdAt      DateTime        @default(now())
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SupportTicket {
+  id             String           @id @default(cuid())
+  brandId        String?
+  influencerId   String?
+  subject        String
+  body           String?
+  priority       SupportPriority  @default(NORMAL)
+  status         SupportStatus    @default(OPEN)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  brand          BrandProfile?     @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  influencer     InfluencerProfile? @relation(fields: [influencerId], references: [id], onDelete: SetNull)
+}
+
+model TrendVideo {
+  id              String          @id @default(cuid())
+  platform        Platform
+  handle          String
+  title           String?
+  videoUrl        String?
+  viralScore      Int             @default(0)
+  views           Int             @default(0)
+  likes           Int             @default(0)
+  engagementRate  Float           @default(0)
+  category        String?
+  language        String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+model CampaignCategory {
+  id          String                  @id @default(cuid())
+  slug        String                  @unique
+  label       String
+  sortOrder   Int                     @default(0)
+  isActive    Boolean                 @default(true)
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  options     CampaignCategoryOption[]
+}
+
+model CampaignCategoryOption {
+  id            String             @id @default(cuid())
+  categoryId    String
+  value         String
+  label         String
+  description   String?
+  accent        String?
+  sortOrder     Int                @default(0)
+  isActive      Boolean            @default(true)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  category      CampaignCategory   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, value])
+}
+
+model AuditLog {
+  id             String          @id @default(cuid())
+  actorUserId    String?
+  action         String
+  entity         String?
+  entityId       String?
+  detail         String?
+  createdAt      DateTime        @default(now())
+
+  actor          User?           @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+}
